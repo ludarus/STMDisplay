@@ -1,3 +1,5 @@
+#converts a png image to rgb565
+
 from PIL import Image
 
 img = Image.open("vmc logo displayable.png").convert("RGB")
