@@ -5,6 +5,7 @@
  *      Author: Luke Fadel
  */
 #include "main.h"
+#include "image.h"
 
 // userguide description = Reset active low. Mapped to pin PA1
 void LCD_RESET(void) {
@@ -111,10 +112,55 @@ void fillScreen(SPI_HandleTypeDef *spi, uint16_t colour) {
 	// memory write command
 	LCD_CMD(spi, 0x2C);
 
+	//transmitting all in one action for faster drawing
+	//setting DC pin to write mode (high)
+	HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_SET);
+
+	//selecting SPI device
+	LCD_SELECT();
+
 	//sending pixel colour
 	uint8_t screen[] = { (colour >> 8) & 0xFF, colour & 0xFF };
 	for (uint32_t i = 0; i < 240UL * 320UL; i++) {
-		LCD_DATA(spi, screen, 2);
+		HAL_SPI_Transmit(spi, screen, 2, HAL_MAX_DELAY);
 	}
 
+	//deselecting
+	LCD_DESELECT();
+
+}
+
+void displayImage(SPI_HandleTypeDef *spi) {
+	// set column address: 0–239 (full 240 px width) - instruction 2Ah
+	LCD_CMD(spi, 0x2A);      // CASET
+	uint8_t caset[] = { 0x00, 0x00, 0x00, /*239*/0xEF };
+	LCD_DATA(spi, caset, 4);
+
+	// set row address: 0–319 (full 320 px height)
+	LCD_CMD(spi, 0x2B);      // PASET
+
+	uint8_t paset[] = { 0x00, 0x00,
+	/*splitting 319 into 2 bits because it's bigger than 255*/
+	0x01, 0x3F };
+	LCD_DATA(spi, paset, 4);
+
+	// memory write command
+	LCD_CMD(spi, 0x2C);
+
+	//transmitting all in one action for faster drawing
+	//setting DC pin to write mode (high)
+	HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_SET);
+
+	//selecting SPI device
+	LCD_SELECT();
+
+	//sending image data. chunking the data by column because the image size could be (and is) greater than 2^16
+
+	for (uint16_t x = 0; x < 320; x++) {
+		uint8_t * p = &imageData[x * 2 * 240];
+		HAL_SPI_Transmit(spi, p, 240 * 2, HAL_MAX_DELAY);
+	}
+
+	//deselecting
+	LCD_DESELECT();
 }

@@ -126,6 +126,9 @@ int main(void) {
 	//displaying a pixel
 	writePixel(&hspi1, 0xA, 0xA, 0x27249e);
 
+	HAL_Delay(2000);
+
+	displayImage(&hspi1);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */

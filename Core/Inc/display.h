@@ -15,5 +15,6 @@ void LCD_DATA(SPI_HandleTypeDef *spi, uint8_t *data, uint16_t size);
 void LCD_CMD(SPI_HandleTypeDef *spi, uint8_t cmd);
 void writePixel(SPI_HandleTypeDef *spi, uint8_t x, uint8_t y, uint16_t colour);
 void fillScreen(SPI_HandleTypeDef *spi, uint16_t colour);
+void displayImage(SPI_HandleTypeDef *spi);
 
 #endif /* INC_DISPLAY_H_ */
