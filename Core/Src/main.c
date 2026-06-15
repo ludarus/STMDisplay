@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "display.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -94,6 +95,38 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_Delay(200);
+  LCD_RESET();
+  HAL_Delay(200);
+  // Exit sleep mode
+  LCD_CMD(&hspi1, 0x11);      // SLPOUT
+  HAL_Delay(120);              // datasheet requires ≥120 ms after SLPOUT
+
+  // pixel format: 16-bit (RGB565)
+  LCD_CMD(&hspi1, 0x3A);      // COLMOD
+  uint8_t colmod = 0x55;       // 0x55 = 16bpp
+  LCD_DATA(&hspi1, &colmod, 1);
+
+  // memory access control (row/col order, RGB order)
+  LCD_CMD(&hspi1, 0x36);      // MADCTL
+  uint8_t madctl = 0x48;       // MX + BGR — adjust if colors look wrong
+  LCD_DATA(&hspi1, &madctl, 1);
+
+  // set column address: 0–239 (full 240 px width)
+  LCD_CMD(&hspi1, 0x2A);      // CASET
+  uint8_t caset[] = {0x00, 0x00, 0x00, 0xEF};
+  LCD_DATA(&hspi1, caset, 4);
+
+  // set row address: 0–319 (full 320 px height)
+  LCD_CMD(&hspi1, 0x2B);      // PASET
+  uint8_t paset[] = {0x00, 0x00, 0x01, 0x3F};
+  LCD_DATA(&hspi1, paset, 4);
+
+  // turn display on
+  LCD_CMD(&hspi1, 0x29);      // DISPON
+  HAL_Delay(10);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
