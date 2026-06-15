@@ -159,6 +159,7 @@ void displayImage(SPI_HandleTypeDef *spi) {
 	for (uint16_t x = 0; x < 320; x++) {
 		uint8_t * p = &imageData[x * 2 * 240];
 		HAL_SPI_Transmit(spi, p, 240 * 2, HAL_MAX_DELAY);
+//		HAL_SPI_Transmit_DMA(spi, p, 240 * 2);
 	}
 
 	//deselecting
