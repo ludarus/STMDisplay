@@ -7,6 +7,8 @@
 #include "main.h"
 #include "image.h"
 
+uint16_t drawCount = 0;
+
 // userguide description = Reset active low. Mapped to pin PA1
 void LCD_RESET(void) {
 	//setting the reset pin to low to signal a reset
@@ -155,13 +157,26 @@ void displayImage(SPI_HandleTypeDef *spi) {
 	LCD_SELECT();
 
 	//sending image data. chunking the data by column because the image size could be (and is) greater than 2^16
-
-	for (uint16_t x = 0; x < 320; x++) {
-		uint8_t * p = &imageData[x * 2 * 240];
-		HAL_SPI_Transmit(spi, p, 240 * 2, HAL_MAX_DELAY);
-//		HAL_SPI_Transmit_DMA(spi, p, 240 * 2);
-	}
+	drawCount = 0;
+//	for (uint16_t x = 0; x < 320; x++) {
+	uint8_t *p = &imageData[drawCount * 2 * 240];
+//		HAL_SPI_Transmit(spi, p, 240 * 2, HAL_MAX_DELAY);
+	HAL_SPI_Transmit_DMA(spi, p, 240 * 2);
+//	}
 
 	//deselecting
-	LCD_DESELECT();
+//	LCD_DESELECT();
+}
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
+	if (hspi->Instance == SPI1) {
+		// transmission complete — safe to deselect or trigger next transfer
+		drawCount++;
+		if (drawCount < 320) {
+			uint8_t *p = &imageData[drawCount * 2 * 240];
+			HAL_SPI_Transmit_DMA(hspi, p, 240 * 2);
+		} else {
+			LCD_DESELECT();
+		}
+	}
 }
