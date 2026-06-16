@@ -6,22 +6,24 @@
  */
 #include "main.h"
 #include "image.h"
-#include "math.h"
+#include "memory.h"
+
+//determines how many bytes of the image are loaded from one call
+#define CHUNK 16384
+
+//creating a buffer to load into the RAM for faster image display
+static uint8_t buf[2][CHUNK];
+static uint8_t activeBuf = 0;
 
 static uint8_t currentlyDrawing = 0;
 
 static uint8_t *drawPtr = 0;
 static uint8_t *drawEnd = 0;
 
-
 //DEBUG
 static uint32_t startTime;
 static uint32_t finalTime;
 //DEBUG
-
-
-//fitting max value into each spi call
-const uint16_t imageChunk = UINT16_MAX;
 
 // userguide description = Reset active low. Mapped to pin PA1
 void LCD_RESET(void) {
@@ -180,16 +182,18 @@ void displayImage(SPI_HandleTypeDef *spi) {
 		currentlyDrawing = 1;
 
 		startTime = HAL_GetTick();
-
+		activeBuf = 0;
 		//checking if chunking is required or not
-		if (sizeof(imageData) <= imageChunk) {
+		if (sizeof(imageData) <= CHUNK) {
 			//not required
 			HAL_SPI_Transmit_DMA(spi, drawPtr, sizeof(imageData));
 			drawPtr = drawEnd;
 		} else {
 			//required
-			HAL_SPI_Transmit_DMA(spi, drawPtr, imageChunk);
-			drawPtr += imageChunk;
+			HAL_SPI_Transmit_DMA(spi, drawPtr, CHUNK);
+			drawPtr += CHUNK;
+			//loading the next chunk of the image into ram for faster transfer
+			memcpy(buf[activeBuf], drawPtr, CHUNK);
 		}
 	} else {
 		// called if function is already drawing
@@ -204,15 +208,19 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
 			LCD_DESELECT();
 			currentlyDrawing = 0;
 			return;
-		} else if (drawEnd - drawPtr < imageChunk) {
+		} else if (drawEnd - drawPtr < CHUNK) {
 			//partial chunk
-			HAL_SPI_Transmit_DMA(hspi, drawPtr, drawEnd - drawPtr);
+			HAL_SPI_Transmit_DMA(hspi, buf[activeBuf], drawEnd - drawPtr);
 			//done drawing criteria
-			drawPtr += imageChunk;
+			drawPtr += CHUNK;
 		} else {
 			//full chunk
-			HAL_SPI_Transmit_DMA(hspi, drawPtr, imageChunk);
-			drawPtr += imageChunk;
+			HAL_SPI_Transmit_DMA(hspi, buf[activeBuf], CHUNK);
+			drawPtr += CHUNK;
+			//loading the next chunk of the image into ram for faster transfer, and swapping buffers
+			activeBuf = !activeBuf;
+			memcpy(buf[activeBuf], drawPtr, CHUNK);
+
 		}
 	}
 
