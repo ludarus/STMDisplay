@@ -8,9 +8,17 @@
 #include "image.h"
 #include "math.h"
 
-static uint16_t drawCount = 0;
+static uint8_t currentlyDrawing = 0;
+
+static uint8_t *drawPtr = 0;
+static uint8_t *drawEnd = 0;
+
+
+//DEBUG
 static uint32_t startTime;
 static uint32_t finalTime;
+//DEBUG
+
 
 //fitting max value into each spi call
 const uint16_t imageChunk = UINT16_MAX;
@@ -140,51 +148,72 @@ void fillScreen(SPI_HandleTypeDef *spi, uint16_t colour) {
 }
 
 void displayImage(SPI_HandleTypeDef *spi) {
-	// set column address: 0–239 (full 240 px width) - instruction 2Ah
-	LCD_CMD(spi, 0x2A);      // CASET
-	uint8_t caset[] = { 0x00, 0x00, 0x00, /*239*/0xEF };
-	LCD_DATA(spi, caset, 4);
+	if (!currentlyDrawing) {
+		// set column address: 0–239 (full 240 px width) - instruction 2Ah
+		LCD_CMD(spi, 0x2A);      // CASET
+		uint8_t caset[] = { 0x00, 0x00, 0x00, /*239*/0xEF };
+		LCD_DATA(spi, caset, 4);
 
-	// set row address: 0–319 (full 320 px height)
-	LCD_CMD(spi, 0x2B);      // PASET
+		// set row address: 0–319 (full 320 px height)
+		LCD_CMD(spi, 0x2B);      // PASET
 
-	uint8_t paset[] = { 0x00, 0x00,
-	/*splitting 319 into 2 bits because it's bigger than 255*/
-	0x01, 0x3F };
-	LCD_DATA(spi, paset, 4);
+		uint8_t paset[] = { 0x00, 0x00,
+		/*splittingdrawPtr 319 into 2 bits because it's bigger than 255*/
+		0x01, 0x3F };
+		LCD_DATA(spi, paset, 4);
 
-	// memory write command
-	LCD_CMD(spi, 0x2C);
+		// memory write command
+		LCD_CMD(spi, 0x2C);
 
-	//transmitting all in one action for faster drawing
-	//setting DC pin to write mode (high)
-	HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_SET);
+		//transmitting all in one action for faster drawing
+		//setting DC pin to write mode (high)
+		HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_SET);
 
-	//selecting SPI device
-	LCD_SELECT();
+		//selecting SPI device
+		LCD_SELECT();
 
-	//sending image data. chunking data by 2^16 bits
-//	drawCount = ceil(imageData/imageChunk;
-	drawCount = 0;
-	startTime = HAL_GetTick();
-	HAL_SPI_Transmit_DMA(spi, &imageData[0], imageChunk);
+		//sending image data. chunking data by 2^16 bits
+		drawPtr = &imageData[0];
+		drawEnd = &imageData[sizeof(imageData)];
+
+		//setting status to busy
+		currentlyDrawing = 1;
+
+		startTime = HAL_GetTick();
+
+		//checking if chunking is required or not
+		if (sizeof(imageData) <= imageChunk) {
+			//not required
+			HAL_SPI_Transmit_DMA(spi, drawPtr, sizeof(imageData));
+			drawPtr = drawEnd;
+		} else {
+			//required
+			HAL_SPI_Transmit_DMA(spi, drawPtr, imageChunk);
+			drawPtr += imageChunk;
+		}
+	} else {
+		// called if function is already drawing
+	}
 }
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
 	if (hspi->Instance == SPI1) {
-		// transmission complete — safe to deselect or trigger next transfer
-		drawCount++;
-		uint8_t *p = &imageData[drawCount * imageChunk];
-		if ((uint64_t) (drawCount + 1) * (uint64_t) imageChunk
-				< sizeof(imageData)) {
-			HAL_SPI_Transmit_DMA(hspi, p, imageChunk);
-		} else if ((uint64_t) (drawCount) * (uint64_t) imageChunk
-				< sizeof(imageData)) {
-			//partial chunk
-			HAL_SPI_Transmit_DMA(hspi, p, sizeof(imageData) % imageChunk);
-		} else {
+		if (drawPtr >= drawEnd) {
+			//done drawing
 			finalTime = HAL_GetTick() - startTime;
 			LCD_DESELECT();
+			currentlyDrawing = 0;
+			return;
+		} else if (drawEnd - drawPtr < imageChunk) {
+			//partial chunk
+			HAL_SPI_Transmit_DMA(hspi, drawPtr, drawEnd - drawPtr);
+			//done drawing criteria
+			drawPtr += imageChunk;
+		} else {
+			//full chunk
+			HAL_SPI_Transmit_DMA(hspi, drawPtr, imageChunk);
+			drawPtr += imageChunk;
 		}
 	}
+
 }
