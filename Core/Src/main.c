@@ -137,12 +137,12 @@ int main(void)
 	HAL_Delay(100);
 
 //filling screen
-	fillScreen(&hspi1, 0xb30b97);
-
-//displaying a pixel
-	writePixel(&hspi1, 0xA, 0xA, 0x27249e);
-
-	HAL_Delay(2000);
+//	fillScreen(&hspi1, 0xb30b97);
+//
+////displaying a pixel
+//	writePixel(&hspi1, 0xA, 0xA, 0x27249e);
+//
+	HAL_Delay(200);
 
 	displayImage(&hspi1);
 

@@ -6,8 +6,14 @@
  */
 #include "main.h"
 #include "image.h"
+#include "math.h"
 
-uint16_t drawCount = 0;
+static uint16_t drawCount = 0;
+static uint32_t startTime;
+static uint32_t finalTime;
+
+//fitting max value into each spi call
+const uint16_t imageChunk = UINT16_MAX;
 
 // userguide description = Reset active low. Mapped to pin PA1
 void LCD_RESET(void) {
@@ -21,6 +27,7 @@ void LCD_RESET(void) {
 	HAL_GPIO_WritePin(DISP_RESET_GPIO_Port, DISP_RESET_Pin, GPIO_PIN_SET);
 
 	HAL_Delay(100);
+
 }
 
 //userguide description = SPI chip select active high
@@ -156,26 +163,27 @@ void displayImage(SPI_HandleTypeDef *spi) {
 	//selecting SPI device
 	LCD_SELECT();
 
-	//sending image data. chunking the data by column because the image size could be (and is) greater than 2^16
+	//sending image data. chunking data by 2^16 bits
+//	drawCount = ceil(imageData/imageChunk;
 	drawCount = 0;
-//	for (uint16_t x = 0; x < 320; x++) {
-	uint8_t *p = &imageData[drawCount * 2 * 240];
-//		HAL_SPI_Transmit(spi, p, 240 * 2, HAL_MAX_DELAY);
-	HAL_SPI_Transmit_DMA(spi, p, 240 * 2);
-//	}
-
-	//deselecting
-//	LCD_DESELECT();
+	startTime = HAL_GetTick();
+	HAL_SPI_Transmit_DMA(spi, &imageData[0], imageChunk);
 }
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
 	if (hspi->Instance == SPI1) {
 		// transmission complete — safe to deselect or trigger next transfer
 		drawCount++;
-		if (drawCount < 320) {
-			uint8_t *p = &imageData[drawCount * 2 * 240];
-			HAL_SPI_Transmit_DMA(hspi, p, 240 * 2);
+		uint8_t *p = &imageData[drawCount * imageChunk];
+		if ((uint64_t) (drawCount + 1) * (uint64_t) imageChunk
+				< sizeof(imageData)) {
+			HAL_SPI_Transmit_DMA(hspi, p, imageChunk);
+		} else if ((uint64_t) (drawCount) * (uint64_t) imageChunk
+				< sizeof(imageData)) {
+			//partial chunk
+			HAL_SPI_Transmit_DMA(hspi, p, sizeof(imageData) % imageChunk);
 		} else {
+			finalTime = HAL_GetTick() - startTime;
 			LCD_DESELECT();
 		}
 	}
