@@ -1,7 +1,14 @@
+# Notice
+This project is deprecated, as the GFX01M2 will no longer be used, instead replaced by a newer display.
+
 # Specifications
 - Demo image = 153600B (unoptimized size)
-- F091RC SRAM = 32KB
-- 
+- F091RC SRAM = 32KiB
+- F091RC FLASH = 256KiB
+- GFX01M2 FLASH = 64 MBit
+    - MX25L6433F
+- GFX01M2 Display = 320x240
+    - ILI9341V
 
 # Image Display Time Optimization
 **Initial Implementation**
@@ -38,5 +45,13 @@
 
 
 # Proof of Image Display
-- 
-![demo of working image display](/demo.jpg)
+![demo of working image display](/images/demo.jpg)
+
+# Current Demo Images (320 x 240)
+
+- Use the [python script](/torgb565.py) to convert the pngs into an array of bytes in RGB565 format
+
+Logo
+
+![demo image 1](/images/VMC.png)
+

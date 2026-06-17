@@ -9,7 +9,7 @@
 #include "memory.h"
 
 //determines how many bytes of the image are loaded from one call
-#define CHUNK 16384
+#define CHUNK 8192
 
 //creating a buffer to load into the RAM for faster image display
 static uint8_t buf[2][CHUNK];
@@ -200,6 +200,7 @@ void displayImage(SPI_HandleTypeDef *spi) {
 	}
 }
 
+//callback that is called when HAL_SPI_Transmit_DMA finishes
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
 	if (hspi->Instance == SPI1) {
 		if (drawPtr >= drawEnd) {
