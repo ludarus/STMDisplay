@@ -39,6 +39,7 @@ This project is deprecated, as the GFX01M2 will no longer be used, instead repla
     - time = 121 ms
 - chunk = 8192B
     - time = 102 ms
+    - at 12Mbit/sec spi connection (what this was tested on), this is the shortest possible time to display a full resolution image
 - chunk = 16384B
     - too big to fit into RAM
 
